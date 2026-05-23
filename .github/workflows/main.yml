@@ -26,7 +26,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # 3. Setup Android SDK + NDK
+      # 3. Setup Android SDK + NDK r16b
       - name: Set up Android SDK & NDK
         uses: android-actions/setup-android@v3
         with:
@@ -38,14 +38,14 @@ jobs:
           cmdline-tools-version: 12266719
           accept-android-sdk-licenses: true
 
-      # 4. Enable Windows long paths
+      # 4. Enable long paths
       - name: Enable long paths
         shell: powershell
         run: |
           git config --system core.longpaths true
           reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /t REG_DWORD /d 1 /f
 
-      # 5. Show SDK info
+      # 5. Show Android SDK info
       - name: Show Android SDK info
         shell: cmd
         run: |
@@ -75,30 +75,25 @@ jobs:
           echo ===== ROOT FILES =====
           dir
 
-          if not exist "client" (
-            echo ERROR: client folder not found
+          if not exist "client\jni" (
+            echo ERROR: client\jni folder not found
             exit /b 1
           )
 
           echo.
-          echo ===== ENTER CLIENT FOLDER =====
-          cd client
+          echo ===== ENTER JNI FOLDER =====
+          cd client\jni
 
           echo.
           echo ===== CURRENT DIRECTORY =====
           cd
 
           echo.
-          echo ===== CLIENT FILES =====
+          echo ===== JNI FILES =====
           dir
 
           if not exist "Android.mk" (
             echo ERROR: Android.mk not found
-            exit /b 1
-          )
-
-          if not exist "Application.mk" (
-            echo ERROR: Application.mk not found
             exit /b 1
           )
 
@@ -108,7 +103,6 @@ jobs:
           call "%NDK_PATH%\ndk-build.cmd" ^
             NDK_PROJECT_PATH=. ^
             APP_BUILD_SCRIPT=Android.mk ^
-            NDK_APPLICATION_MK=Application.mk ^
             APP_ABI=armeabi-v7a
 
       # 7. Verify native library
