@@ -13,20 +13,21 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       # 1. Checkout source
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Set up JDK 17
+      # 2. Setup Java 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # 3. Set up Android SDK + NDK r16b
-      - name: Set up Android SDK & NDK r16b
+      # 3. Setup Android SDK + NDK r16b
+      - name: Set up Android SDK & NDK
         uses: android-actions/setup-android@v3
         with:
           packages: >
@@ -37,22 +38,62 @@ jobs:
           cmdline-tools-version: 12266719
           accept-android-sdk-licenses: true
 
-      # 4. Enable long paths for Windows
+      # 4. Enable long paths
       - name: Enable long paths
         shell: powershell
         run: |
           git config --system core.longpaths true
           reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /t REG_DWORD /d 1 /f
 
-      # 5. Build libsamp.so
+      # 5. Show SDK + NDK info
+      - name: Show Android SDK info
+        shell: cmd
+        run: |
+          echo ANDROID_SDK_ROOT=%ANDROID_SDK_ROOT%
+          echo.
+          echo ===== INSTALLED NDKS =====
+          dir "%ANDROID_SDK_ROOT%\ndk"
+
+      # 6. Build libsamp.so
       - name: Build libsamp.so
         shell: cmd
         run: |
-          echo ANDROID_NDK_ROOT=%ANDROID_NDK_ROOT%
+          set NDK_PATH=%ANDROID_SDK_ROOT%\ndk\16.1.4479499
 
-          cd app\jni
+          echo.
+          echo ===== USING NDK =====
+          echo %NDK_PATH%
 
-          ndk-build.cmd ^
+          if not exist "%NDK_PATH%\ndk-build.cmd" (
+            echo ERROR: ndk-build.cmd not found
+            exit /b 1
+          )
+
+          echo.
+          echo ===== PROJECT FILES =====
+          dir
+
+          echo.
+          echo ===== ENTER JNI FOLDER =====
+
+          if exist "app\jni" (
+            cd app\jni
+          ) else (
+            if exist "app\src\main\jni" (
+              cd app\src\main\jni
+            ) else (
+              echo ERROR: JNI folder not found
+              exit /b 1
+            )
+          )
+
+          echo Current Directory:
+          cd
+
+          echo.
+          echo ===== START NDK BUILD =====
+
+          call "%NDK_PATH%\ndk-build.cmd" ^
             NDK_PROJECT_PATH=. ^
             APP_BUILD_SCRIPT=Android.mk ^
             NDK_APPLICATION_MK=Application.mk ^
@@ -60,24 +101,67 @@ jobs:
             NDK_OUT=build\obj ^
             NDK_LIBS_OUT=build\libs
 
-      # 6. Copy libsamp.so to jniLibs
+      # 7. Copy libsamp.so
       - name: Copy libsamp.so
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path "app/src/main/jniLibs/armeabi-v7a"
+          $source1 = "app/jni/build/libs/armeabi-v7a/libsamp.so"
+          $source2 = "app/src/main/jni/build/libs/armeabi-v7a/libsamp.so"
 
-          Copy-Item `
-            "app/jni/build/libs/armeabi-v7a/libsamp.so" `
-            "app/src/main/jniLibs/armeabi-v7a/libsamp.so" `
-            -Force
+          $dest = "app/src/main/jniLibs/armeabi-v7a"
 
-      # 7. Build Debug APK
+          New-Item -ItemType Directory -Force -Path $dest
+
+          if (Test-Path $source1) {
+              Copy-Item $source1 "$dest/libsamp.so" -Force
+              Write-Host "Copied from source1"
+          }
+          elseif (Test-Path $source2) {
+              Copy-Item $source2 "$dest/libsamp.so" -Force
+              Write-Host "Copied from source2"
+          }
+          else {
+              Write-Host "libsamp.so not found"
+              exit 1
+          }
+
+      # 8. Verify copied library
+      - name: Verify libs
+        shell: cmd
+        run: |
+          dir "app\src\main\jniLibs\armeabi-v7a"
+
+      # 9. Grant gradlew permission
+      - name: Prepare Gradle
+        shell: cmd
+        run: |
+          if exist gradlew.bat (
+            echo gradlew exists
+          ) else (
+            echo ERROR: gradlew.bat not found
+            exit /b 1
+          )
+
+      # 10. Build APK
       - name: Build Debug APK
         shell: cmd
         run: |
           call gradlew.bat assembleDebug --stacktrace
 
-      # 8. Upload APK to GitHub Release
+      # 11. Verify APK
+      - name: Verify APK
+        shell: cmd
+        run: |
+          dir "app\build\outputs\apk\debug"
+
+      # 12. Upload APK artifact
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      # 13. Upload to GitHub Release
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         if: success()
@@ -86,7 +170,7 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: Debug Build v${{ github.run_number }}
           body: |
-            Bản build mới nhất từ nhánh ${{ github.ref_name }}
+            Latest build from branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
           draft: false
           prerelease: false
