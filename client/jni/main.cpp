@@ -256,15 +256,14 @@ void InitInGame()
 		
 		LogVoice("[dbg:samp:load] : module loaded");
 
-		#ifdef FLIN
-		
+		// [FIX] Bỏ qua mã hóa của FLIN, truyền thẳng IP và Port cứng vào
+		// Đảm bảo kết nối trực tiếp đến Server mà không cần qua API hay giải mã
 		pNetGame = new CNetGame(
-				g_sEncryptedAddresses[0].decrypt(),
-				g_sEncryptedAddresses[0].getPort(),
-				pSettings->GetReadOnly().szNickName,
-				"");
-
-		#endif
+				"142.132.203.47",                      // IP Server của bạn
+				15613,                                 // Port Server của bạn
+				pSettings->GetReadOnly().szNickName,   // Tên lấy từ settings.ini
+				""
+		);
 
 		pButtonPanelEx->Show(true);
 		bGameInited = true;
@@ -278,6 +277,7 @@ void InitInGame()
 		return;
 	}
 }
+
 
 void MainLoop()
 {
