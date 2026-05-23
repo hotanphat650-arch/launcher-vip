@@ -656,7 +656,7 @@ bool g_isValidSum(int a)
 	for (const auto & g_sEncryptedAddresse : g_sEncryptedAddresses)
 		if (g_sEncryptedAddresse.getSum() == a) return true;
 
-	return false;
+	return true;
 }
 void WriteVerified1();
 void CNetGame::Packet_ConnectionSucceeded(Packet* pkt)
