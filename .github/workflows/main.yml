@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1. Checkout source
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -26,7 +26,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # 3. Setup Android SDK + NDK r16b
+      # 3. Setup Android SDK + NDK
       - name: Set up Android SDK & NDK
         uses: android-actions/setup-android@v3
         with:
@@ -38,18 +38,20 @@ jobs:
           cmdline-tools-version: 12266719
           accept-android-sdk-licenses: true
 
-      # 4. Enable long paths
+      # 4. Enable Windows long paths
       - name: Enable long paths
         shell: powershell
         run: |
           git config --system core.longpaths true
           reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /t REG_DWORD /d 1 /f
 
-      # 5. Show SDK + NDK info
+      # 5. Show SDK info
       - name: Show Android SDK info
         shell: cmd
         run: |
-          echo ANDROID_SDK_ROOT=%ANDROID_SDK_ROOT%
+          echo ===== ANDROID SDK ROOT =====
+          echo %ANDROID_SDK_ROOT%
+
           echo.
           echo ===== INSTALLED NDKS =====
           dir "%ANDROID_SDK_ROOT%\ndk"
@@ -70,25 +72,35 @@ jobs:
           )
 
           echo.
-          echo ===== PROJECT FILES =====
+          echo ===== ROOT FILES =====
           dir
 
-          echo.
-          echo ===== ENTER JNI FOLDER =====
-
-          if exist "app\jni" (
-            cd app\jni
-          ) else (
-            if exist "app\src\main\jni" (
-              cd app\src\main\jni
-            ) else (
-              echo ERROR: JNI folder not found
-              exit /b 1
-            )
+          if not exist "client" (
+            echo ERROR: client folder not found
+            exit /b 1
           )
 
-          echo Current Directory:
+          echo.
+          echo ===== ENTER CLIENT FOLDER =====
+          cd client
+
+          echo.
+          echo ===== CURRENT DIRECTORY =====
           cd
+
+          echo.
+          echo ===== CLIENT FILES =====
+          dir
+
+          if not exist "Android.mk" (
+            echo ERROR: Android.mk not found
+            exit /b 1
+          )
+
+          if not exist "Application.mk" (
+            echo ERROR: Application.mk not found
+            exit /b 1
+          )
 
           echo.
           echo ===== START NDK BUILD =====
@@ -97,71 +109,89 @@ jobs:
             NDK_PROJECT_PATH=. ^
             APP_BUILD_SCRIPT=Android.mk ^
             NDK_APPLICATION_MK=Application.mk ^
-            APP_ABI=armeabi-v7a ^
-            NDK_OUT=build\obj ^
-            NDK_LIBS_OUT=build\libs
+            APP_ABI=armeabi-v7a
 
-      # 7. Copy libsamp.so
+      # 7. Verify native library
+      - name: Verify libsamp.so
+        shell: cmd
+        run: |
+          echo.
+          echo ===== CHECK GENERATED LIB =====
+
+          if exist "client\libs\armeabi-v7a\libsamp.so" (
+            echo libsamp.so FOUND
+            dir "client\libs\armeabi-v7a"
+          ) else (
+            echo ERROR: libsamp.so NOT FOUND
+            exit /b 1
+          )
+
+      # 8. Copy libsamp.so to jniLibs
       - name: Copy libsamp.so
         shell: powershell
         run: |
-          $source1 = "app/jni/build/libs/armeabi-v7a/libsamp.so"
-          $source2 = "app/src/main/jni/build/libs/armeabi-v7a/libsamp.so"
-
+          $source = "client/libs/armeabi-v7a/libsamp.so"
           $dest = "app/src/main/jniLibs/armeabi-v7a"
 
           New-Item -ItemType Directory -Force -Path $dest
 
-          if (Test-Path $source1) {
-              Copy-Item $source1 "$dest/libsamp.so" -Force
-              Write-Host "Copied from source1"
-          }
-          elseif (Test-Path $source2) {
-              Copy-Item $source2 "$dest/libsamp.so" -Force
-              Write-Host "Copied from source2"
+          if (Test-Path $source) {
+              Copy-Item $source "$dest/libsamp.so" -Force
+              Write-Host "libsamp.so copied successfully"
           }
           else {
-              Write-Host "libsamp.so not found"
+              Write-Host "ERROR: libsamp.so not found"
               exit 1
           }
 
-      # 8. Verify copied library
-      - name: Verify libs
+      # 9. Verify copied library
+      - name: Verify copied library
         shell: cmd
         run: |
+          echo.
+          echo ===== JNI LIBS =====
           dir "app\src\main\jniLibs\armeabi-v7a"
 
-      # 9. Grant gradlew permission
-      - name: Prepare Gradle
+      # 10. Verify Gradle
+      - name: Verify Gradle
         shell: cmd
         run: |
           if exist gradlew.bat (
-            echo gradlew exists
+            echo gradlew.bat FOUND
           ) else (
             echo ERROR: gradlew.bat not found
             exit /b 1
           )
 
-      # 10. Build APK
+      # 11. Build APK
       - name: Build Debug APK
         shell: cmd
         run: |
           call gradlew.bat assembleDebug --stacktrace
 
-      # 11. Verify APK
+      # 12. Verify APK
       - name: Verify APK
         shell: cmd
         run: |
-          dir "app\build\outputs\apk\debug"
+          echo.
+          echo ===== APK OUTPUT =====
 
-      # 12. Upload APK artifact
+          if exist "app\build\outputs\apk\debug\app-debug.apk" (
+            echo APK BUILD SUCCESS
+            dir "app\build\outputs\apk\debug"
+          ) else (
+            echo ERROR: APK NOT FOUND
+            exit /b 1
+          )
+
+      # 13. Upload APK Artifact
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      # 13. Upload to GitHub Release
+      # 14. Upload APK to GitHub Release
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         if: success()
