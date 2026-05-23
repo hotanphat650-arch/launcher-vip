@@ -1,7 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
-//apply plugin: 'me.tatarka.retrolambda'
 
 android {
 
@@ -12,9 +11,7 @@ android {
     namespace 'com.samp.online'
 
     defaultConfig {
-
         applicationId "com.samp.online"
-
         minSdkVersion 21
         targetSdkVersion 28
 
@@ -22,7 +19,6 @@ android {
         versionName "1.2.0"
 
         multiDexEnabled true
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
@@ -35,32 +31,26 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    // CẤU HÌNH QUAN TRỌNG: Gradle tự lấy libsamp.so từ thư mục client/libs
     sourceSets {
         main {
-            jniLibs.srcDirs = ['src/main/jniLibs']
+            jniLibs.srcDirs = ['src/main/jniLibs', '../client/libs']
         }
     }
 
     packagingOptions {
-
         jniLibs {
             useLegacyPackaging = true
         }
-
         doNotStrip "**/*.so"
     }
 
     buildTypes {
-
         release {
             minifyEnabled true
             shrinkResources true
-
-            proguardFiles getDefaultProguardFile(
-                    'proguard-android.txt'
-            ), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
-
         debug {
             minifyEnabled false
         }
@@ -73,22 +63,16 @@ android {
 }
 
 dependencies {
-
     implementation fileTree(dir: "libs", include: ["*.jar"])
-
     implementation 'androidx.activity:activity:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.constraintlayout:constraintlayout-core:1.0.4'
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
-
     implementation 'com.android.support:multidex:1.0.3'
-
     implementation 'com.google.android.material:material:1.10.0'
     implementation "com.google.android.gms:play-services-base:18.2.0"
-
     implementation platform('com.google.firebase:firebase-bom:28.3.0')
-
     implementation 'com.google.firebase:firebase-core:21.1.1'
     implementation 'com.google.firebase:firebase-messaging:23.3.1'
     implementation 'com.google.firebase:firebase-analytics'
@@ -96,97 +80,56 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth:22.3.0'
     implementation 'com.google.firebase:firebase-database:20.3.0'
     implementation 'com.google.firebase:firebase-firestore:25.1.0'
-
     implementation 'org.apache.commons:commons-lang3:3.17.0'
     implementation 'com.google.guava:guava:33.3.1-jre'
-
     implementation 'pub.devrel:easypermissions:3.0.0'
-
     implementation 'com.liulishuo.filedownloader:library:1.7.7'
     implementation 'com.github.amitshekhariitbhu:PRDownloader:1.0.2'
-
     implementation 'com.github.GrenderG:Toasty:1.5.2'
-
     implementation 'com.google.code.gson:gson:2.9.0'
-
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-
     implementation 'com.github.bumptech.glide:glide:4.13.0'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.13.0'
-
     implementation 'com.makeramen:roundedimageview:2.3.0'
-
     implementation 'com.tuyenmonkey:mkloader:1.4.0'
-
     implementation 'com.github.ceryle:RadioRealButton:v2.1.1'
-
     implementation 'com.akexorcist:round-corner-progress-bar:2.1.2'
-
     implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
-
     implementation 'com.github.Triggertrap:SeekArc:v1.1'
-
     implementation "com.github.skydoves:colorpickerpreference:2.0.4"
-
     implementation 'com.intuit.sdp:sdp-android:1.0.6'
     implementation 'com.intuit.ssp:ssp-android:1.0.6'
-
     implementation 'com.yandex.android:mobmetricalib:5.0.0'
-
     implementation 'org.solovyev.android:checkout:1.2.1'
-
     implementation 'commons-io:commons-io:2.6'
-
     implementation "io.reactivex.rxjava2:rxandroid:2.1.1"
-
     implementation 'net.lingala.zip4j:zip4j:2.10.0'
-
     implementation group: 'org.ini4j', name: 'ini4j', version: '0.5.4'
-
     testImplementation 'junit:junit:4.12'
 }
 
 android.applicationVariants.all { variant ->
-
-    variant.outputs.all {
-        outputFileName = "SA-RP.apk"
-    }
+    variant.outputs.all { outputFileName = "SA-RP.apk" }
 
     variant.assembleProvider.configure {
-
         doLast {
-
             def resultDir = file("$projectDir/../result/Studio")
-
             delete resultDir
-
             mkdir resultDir
 
+            // Copy APK
             copy {
-
-                from variant.outputs.collect { output ->
-                    output.outputFile
-                }
-
+                from variant.outputs.collect { it.outputFile }
                 into resultDir
             }
 
+            // Copy libsamp.so từ thư mục build mới để kiểm tra
             copy {
-
-                from "$projectDir/src/main/jniLibs/armeabi-v7a/"
-
+                from "$projectDir/../client/libs/armeabi-v7a/"
                 into resultDir
-
-                include "*.so"
+                include "libsamp.so"
             }
-
-            println ""
-            println "==============================="
-            println " APK BUILD FINISHED "
-            println "==============================="
-            println "OUTPUT: $resultDir"
-            println "==============================="
         }
     }
 }
