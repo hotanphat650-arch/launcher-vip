@@ -67,23 +67,26 @@
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar.FullScreen"
-            android:windowSoftInputMode="adjustResize"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:exported="false" />
 
         <activity
             android:name=".launcher.activities.MainActivity"
             android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:exported="false" />
 
         <activity
             android:name=".launcher.activities.DownloadActivity"
             android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:exported="false" />
 
         <activity
             android:name=".launcher.activities.SplashActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:exported="true">
 
             <intent-filter>
