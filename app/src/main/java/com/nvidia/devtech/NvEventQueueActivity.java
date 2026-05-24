@@ -1,4 +1,3 @@
-----------------------------------------------------------------------------------
 package com.nvidia.devtech;
 
 import android.app.AlertDialog;
