@@ -259,8 +259,8 @@ void InitInGame()
 		// [FIX] Bỏ qua mã hóa của FLIN, truyền thẳng IP và Port cứng vào
 		// Đảm bảo kết nối trực tiếp đến Server mà không cần qua API hay giải mã
 		pNetGame = new CNetGame(
-				"sv.sa-mp.vn",                      // IP Server của bạn
-				7777,                                 // Port Server của bạn
+				"142.132.203.47",                      // IP Server của bạn
+				15613,                                 // Port Server của bạn
 				pSettings->GetReadOnly().szNickName,   // Tên lấy từ settings.ini
 				""
 		);
