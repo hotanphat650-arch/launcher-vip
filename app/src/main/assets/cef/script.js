@@ -137,7 +137,6 @@ function renderInventory(eventData) {
 
         if (i < items.length) {
             const item = items[i];
-            // ĐÃ SỬA: Lấy trực tiếp đường dẫn từ Server Pawn (Ví dụ: "images/items/banhmi.jpeg")
             const iconPath = item.icon ? item.icon : "";
 
             slot.innerHTML = `
@@ -195,7 +194,6 @@ function renderInventory(eventData) {
             if (targetHtmlId) {
                 const slot = document.getElementById(targetHtmlId);
                 if (slot) {
-                    // ĐÃ SỬA: Lấy trực tiếp đường dẫn từ Server Pawn cho phần trang bị luôn
                     const iconPath = equip.icon ? equip.icon : "";
 
                     slot.innerHTML = `
@@ -284,24 +282,9 @@ Cef.registerEventCallback("inventory_show", "renderInventory");
 
 Cef.registerEventCallback("alert_show", "showAlert");
 Cef.registerEventCallback("notification_show", "showNotification");
+
 /* ================= UPDATE HUD STATUS (FOOD & WATER) ================= */
 
-function updatePlayerStatus(eventData) {
-    const data = JSON.parse(eventData);
-    const food = parseInt(data[0]);
-    const water = parseInt(data[1]);
-
-    // Cập nhật thanh thức ăn (Hunger)
-    document.getElementById('food-fill').style.width = food + '%';
-    document.getElementById('food-text').innerText = food + '%';
-
-    // Cập nhật thanh nước (Thirst)
-    document.getElementById('water-fill').style.width = water + '%';
-    document.getElementById('water-text').innerText = water + '%';
-}
-
-// Đăng ký sự kiện với hệ thống CEF để Pawn có thể gọi sang
-Cef.registerEventCallback("hud_update", "updatePlayerStatus");
 function updatePlayerStatus(eventData) {
     const data = JSON.parse(eventData);
     const food = parseInt(data[0]);
@@ -315,22 +298,27 @@ function updatePlayerStatus(eventData) {
 
     // 2. XỬ LÝ HIỆU ỨNG TOÀN MÀN HÌNH (DÀNH CHO Ý TƯỞNG 2)
     const overlay = document.getElementById('screen-effect-overlay');
-    
-    // Nếu đói hoặc khát xuống dưới mức báo động (15%) -> Bật viền đỏ nhấp nháy
-    if (food <= 15 || water <= 15) {
-        overlay.classList.add('vignette-danger');
-    } else {
-        overlay.classList.remove('vignette-danger');
-    }
+    if (overlay) {
+        // Nếu đói hoặc khát xuống dưới mức báo động (15%) -> Bật viền đỏ nhấp nháy
+        if (food <= 15 || water <= 15) {
+            overlay.classList.add('vignette-danger');
+        } else {
+            overlay.classList.remove('vignette-danger');
+        }
 
-    // Nếu khát nghiêm trọng (dưới 10%) -> Bật sương mù mờ ảo giác do mất nước
-    if (water <= 10) {
-        overlay.classList.add('dehydration-effect');
-    } else {
-        overlay.classList.remove('dehydration-effect');
+        // Nếu khát nghiêm trọng (dưới 10%) -> Bật sương mù mờ ảo giác do mất nước
+        if (water <= 10) {
+            overlay.classList.add('dehydration-effect');
+        } else {
+            overlay.classList.remove('dehydration-effect');
+        }
     }
 }
-/* === THÊM VÀO SCRIPT.JS CEF CỦA BẠN === */
+
+// Đăng ký sự kiện với hệ thống CEF để Pawn có thể gọi sang
+Cef.registerEventCallback("hud_update", "updatePlayerStatus");
+
+/* ================= MINIGAME HÁI CẦN SA ================= */
 
 let weedMinigameScore = 0;
 let weedTargetKey = '';
@@ -341,19 +329,35 @@ function startWeedMinigame(eventData) {
     weedMinigameScore = 0;
     minigameActive = true;
     
-    // Giao diện (Bạn tự tạo 1 thẻ Div id="weed-minigame" trong HTML)
+    // Cập nhật giao diện về ban đầu
+    const progressBar = document.getElementById('weed-progress-bar');
+    if (progressBar) progressBar.style.width = '0%';
+    
+    const scoreText = document.getElementById('weed-score');
+    if (scoreText) scoreText.innerText = `Điểm: 0 / 100`;
+
     document.getElementById('weed-minigame').classList.remove('hidden');
     pickNextWeedKey();
 }
 
 function pickNextWeedKey() {
+    if (!minigameActive) return;
     weedTargetKey = WEED_KEYS[Math.floor(Math.random() * WEED_KEYS.length)];
-    // In ra màn hình cho người chơi biết cần bấm nút gì
-    document.getElementById('weed-key-hint').innerText = weedTargetKey.toUpperCase();
+    
+    // Đổi hiển thị gợi ý phím (Nếu là Escape thì ghi chữ ESC cho đẹp)
+    let displayKey = weedTargetKey;
+    if (weedTargetKey === 'Escape') displayKey = 'ESC';
+    
+    document.getElementById('weed-key-hint').innerText = displayKey.toUpperCase();
 }
 
 document.addEventListener('keydown', (e) => {
     if (!minigameActive) return;
+
+    // Chặn phím ESC không làm đóng hoặc ảnh hưởng tới các tính năng khác khi đang chơi minigame
+    if (e.key === 'Escape') {
+        e.preventDefault();
+    }
 
     if (e.key.toLowerCase() === weedTargetKey.toLowerCase() || e.key === weedTargetKey) {
         weedMinigameScore += 10; // Bấm trúng + 10đ
@@ -361,24 +365,32 @@ document.addEventListener('keydown', (e) => {
         weedMinigameScore -= 11; // Bấm sai - 11đ
     }
     
-    document.getElementById('weed-score').innerText = `Điểm: ${weedMinigameScore}`;
+    // Cập nhật độ dài thanh tiến trình trực quan (Tỷ lệ thuận với điểm từ 0% -> 100%)
+    const progressBar = document.getElementById('weed-progress-bar');
+    if (progressBar) {
+        let progressPercent = Math.max(0, weedMinigameScore); 
+        progressBar.style.width = `${progressPercent}%`;
+    }
+    
+    const scoreText = document.getElementById('weed-score');
+    if (scoreText) scoreText.innerText = `Điểm: ${weedMinigameScore} / 100`;
 
     // Đạt 100 điểm thì Thắng
     if (weedMinigameScore >= 100) {
         endWeedMinigame("win");
     } 
-    // m điểm thì Thua
+    // Bị tụt xuống dưới hoặc bằng -30 điểm thì Thua
     else if (weedMinigameScore <= -30) {
         endWeedMinigame("lose");
     } else {
-        pickNextWeedKey(); // Sinh nút tiếp theo
+        pickNextWeedKey(); // Sinh nút ngẫu nhiên tiếp theo
     }
 });
 
 function endWeedMinigame(result) {
     minigameActive = false;
     document.getElementById('weed-minigame').classList.add('hidden');
-    // Gửi kết quả về cho Pawn xử lý (Hàm OnWeedMinigameDone ở trên)
+    // Gửi kết quả về cho Pawn xử lý (Hàm OnWeedMinigameDone)
     Cef.sendEvent("weed_minigame_result", JSON.stringify([result]));
 }
 
